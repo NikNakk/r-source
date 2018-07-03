@@ -686,60 +686,7 @@ int winAccessW(const wchar_t *path, int mode)
 		 (wcsicmp(p, L".bat") == 0) || (wcsicmp(p, L".cmd") == 0)) )
 		return -1;
 	}
-    {
-	/* Now look for file security info */
-	SECURITY_DESCRIPTOR *sdPtr = NULL;
-	DWORD size = 0;
-	GENERIC_MAPPING genMap;
-	HANDLE hToken = NULL;
-	DWORD desiredAccess = 0;
-	DWORD grantedAccess = 0;
-	BOOL accessYesNo = FALSE;
-	PRIVILEGE_SET privSet;
-	DWORD privSetSize = sizeof(PRIVILEGE_SET);
-	int error;
-
-	/* get size */
-	GetFileSecurityW(path,
-			 OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION
-			 | DACL_SECURITY_INFORMATION, 0, 0, &size);
-	error = GetLastError();
-	if (error != ERROR_INSUFFICIENT_BUFFER) return -1;
-	sdPtr = (SECURITY_DESCRIPTOR *) alloca(size);
-	if(!GetFileSecurityW(path,
-			     OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION
-			     | DACL_SECURITY_INFORMATION, sdPtr, size, &size))
-	    return -1;
-	/*
-	 * Perform security impersonation of the user and open the
-	 * resulting thread token.
-	 */
-	if(!ImpersonateSelf(SecurityImpersonation)) return -1;
-	if(!OpenThreadToken(GetCurrentThread (),
-			    TOKEN_DUPLICATE | TOKEN_QUERY, FALSE,
-			    &hToken)) return -1;
-	if (mode & R_OK) desiredAccess |= FILE_GENERIC_READ;
-	if (mode & W_OK) desiredAccess |= FILE_GENERIC_WRITE;
-	if (mode & X_OK) desiredAccess |= FILE_GENERIC_EXECUTE;
-
-	memset(&genMap, 0x0, sizeof (GENERIC_MAPPING));
-	genMap.GenericRead = FILE_GENERIC_READ;
-	genMap.GenericWrite = FILE_GENERIC_WRITE;
-	genMap.GenericExecute = FILE_GENERIC_EXECUTE;
-	genMap.GenericAll = FILE_ALL_ACCESS;
-	if(!AccessCheck(sdPtr, hToken, desiredAccess, &genMap, &privSet,
-			&privSetSize, &grantedAccess, &accessYesNo)) {
-	    CloseHandle(hToken);
-	    return -1;
-	}
-	CloseHandle(hToken);
-	if (!accessYesNo) return -1;
-
-	if ((mode & W_OK)
-	    && !(attr & FILE_ATTRIBUTE_DIRECTORY)
-	    && (attr & FILE_ATTRIBUTE_READONLY)) return -1;
-    }
-    return 0;
+    return _waccess(path, mode);
 }
 
 #include <Rversion.h>
